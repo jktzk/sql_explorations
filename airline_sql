@@ -1,0 +1,67 @@
+#Sql exploration through R
+#Exploration of Airline data from 1987-1989
+install.packages("RSQLite")
+library(RSQLite)
+
+#reading in csvs
+sevenair<-read.csv("~/datasets/1987.csv")
+eightair<-read.csv("~/datasets/1988.csv")
+nineair<-read.csv("~/datasets/1989.csv")
+
+#datasets are written into SLQ
+airdb <- "portalR.db"
+connection<-dbConnect(drv=SQLite(),dbname=airdb)
+dbListTables(connection)
+dbWriteTable(connection,"seven",sevenair)
+dbWriteTable(connection,"eight",eightair)
+dbWriteTable(connection,"nine",nineair)
+dbListTables(connection)
+
+#initial exploration of datasets
+dbGetQuery(connection,"SELECT * from seven limit 10")
+dbGetQuery(connection,"SELECT * from eight limit 10")
+dbGetQuery(connection,"SELECT * from nine limit 10")
+
+
+#Checking which days of the month have most flight data
+dbGetQuery(connection,"SELECT Month,DayofMonth, count(*)
+                       FROM eight 
+                       Group By DayofMonth,Month  
+                       ORDER BY count(*) DESC
+                       limit 5" )
+
+#Checking which airline had most tickets sold
+dbGetQuery(connection,"SELECT UniqueCarrier,count(*)
+                        FROM(
+                             SELECT UniqueCarrier
+                             FROM seven
+                             UNION ALL
+                             SELECT UniqueCarrier
+                             FROM eight
+                             UNION ALL
+                             SELECT UniqueCarrier
+                             FROM nine
+                            )
+                          Group By UniqueCarrier
+                          Order By count(*) DESC")
+                            
+                         
+#graphical display of frequency of flights for different distances
+hist(as.matrix(dbGetQuery(connection,"SELECT Distance, count(*)
+                       FROM nine
+                       WHERE Month=8 
+                       AND DayOfMonth=12
+                       GROUP BY Distance")),main=("Flight Distance Frequency of 08/12/1989 Flights"),xlab="Distance (mi)")
+
+#checking fights for month of october
+as.numeric(dbGetQuery(connection,"SELECT count(*)
+                       FROM eight
+                       WHERE Month=10
+                       AND
+                       Cancelled=1
+                       ") /as.numeric(dbGetQuery(connection,"SELECT count(*)
+                       FROM eight
+                       WHERE Month=10
+                       AND
+                       Cancelled=0
+                       ")))
